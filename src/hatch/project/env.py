@@ -60,6 +60,16 @@ def apply_overrides(env_name, source, condition, condition_value, options, new_c
         elif isinstance(data, dict) and "value" in data:
             if _resolve_condition(env_name, option, source, condition, condition_value, data):
                 new_config[option] = data["value"]
+        elif option_types is not RESERVED_OPTIONS and isinstance(data, list):
+            for i, entry in enumerate(data, 1):
+                if not isinstance(entry, dict) or "value" not in entry:
+                    message = (
+                        f"Entry #{i} in field `tool.hatch.envs.{env_name}.overrides.{source}.{condition}.{option}` "
+                        f"must be defined as a table with a `value` key"
+                    )
+                    raise ValueError(message)
+                if _resolve_condition(env_name, option, source, condition, condition_value, entry, i):
+                    new_config[option] = entry["value"]
         elif option_types is not RESERVED_OPTIONS:
             message = (
                 f"Untyped option `tool.hatch.envs.{env_name}.overrides.{source}.{condition}.{option}` "

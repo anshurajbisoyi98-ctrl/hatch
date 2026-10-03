@@ -1670,6 +1670,91 @@ class TestEnvs:
             assert project_config.envs == expected_envs
             assert project_config.matrices["foo"] == construct_matrix_data("foo", env_config)
 
+    @pytest.mark.parametrize("value", ["baz", ["baz"], {"key": "baz"}, False])
+    def test_overrides_matrix_array_with_no_type_information(self, isolation, value):
+        env_config = {
+            "foo": {
+                "bar": "original",
+                "matrix": [{"version": ["9000", "42", "other"]}],
+                "overrides": {
+                    "matrix": {
+                        "version": {
+                            "bar": [
+                                {"value": "first", "if": ["9000", "42"]},
+                                {"value": value, "if": ["42"]},
+                            ]
+                        }
+                    }
+                },
+            }
+        }
+        project_config = ProjectConfig(isolation, {"envs": env_config}, PluginManager())
+
+        assert project_config.envs == {
+            "default": {"type": "virtual"},
+            "foo.9000": {"type": "virtual", "bar": "original"},
+            "foo.42": {"type": "virtual", "bar": "original"},
+            "foo.other": {"type": "virtual", "bar": "original"},
+        }
+
+        project_config.finalize_env_overrides({})
+
+        assert project_config.envs == {
+            "default": {"type": "virtual"},
+            "foo.9000": {"type": "virtual", "bar": "first"},
+            "foo.42": {"type": "virtual", "bar": value},
+            "foo.other": {"type": "virtual", "bar": "original"},
+        }
+
+    @pytest.mark.parametrize("entry", ["baz", {}, {"if": ["42"]}])
+    def test_overrides_matrix_untyped_array_invalid_entry(self, isolation, entry):
+        project_config = ProjectConfig(
+            isolation,
+            {
+                "envs": {
+                    "foo": {
+                        "matrix": [{"version": ["42"]}],
+                        "overrides": {"matrix": {"version": {"bar": [{"value": "first"}, entry]}}},
+                    }
+                }
+            },
+            PluginManager(),
+        )
+        _ = project_config.envs
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                r"Entry #2 in field `tool.hatch.envs.foo\.42\.overrides\.matrix\.version\.bar` "
+                "must be defined as a table with a `value` key"
+            ),
+        ):
+            project_config.finalize_env_overrides({})
+
+    def test_overrides_matrix_untyped_array_invalid_condition(self, isolation):
+        project_config = ProjectConfig(
+            isolation,
+            {
+                "envs": {
+                    "foo": {
+                        "matrix": [{"version": ["42"]}],
+                        "overrides": {"matrix": {"version": {"bar": [{"value": "baz", "if": "42"}]}}},
+                    }
+                }
+            },
+            PluginManager(),
+        )
+        _ = project_config.envs
+
+        with pytest.raises(
+            TypeError,
+            match=(
+                "Option `if` in entry #1 in field "
+                r"`tool.hatch.envs.foo\.42\.overrides\.matrix\.version\.bar` must be an array"
+            ),
+        ):
+            project_config.finalize_env_overrides({})
+
     def test_overrides_matrix_set_with_no_type_information_not_table(self, isolation):
         project_config = ProjectConfig(
             isolation,

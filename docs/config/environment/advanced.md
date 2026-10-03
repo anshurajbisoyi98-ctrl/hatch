@@ -202,6 +202,18 @@ You can modify options based on the conditions of different sources like [matrix
 
 The [type](#types) of the selected option determines the types of values.
 
+For environment plugin options without declared type information, use a table with a `value` key or an array of such tables:
+
+```toml config-example
+[tool.hatch.envs.test.overrides]
+matrix.mode.extra-args = [
+  { value = ["-q"], if = ["quiet"] },
+  { value = ["-vv"], if = ["verbose"] },
+]
+```
+
+Each matching entry replaces the entire option value. If multiple entries match, the last matching entry wins; if none match, the existing value is retained. Arrays for these options are applied after environment plugin types are loaded, so options with declared types retain their type-specific override behavior.
+
 ### Platform overrides
 
 Options can be modified based on the current platform using the `platform` source.
