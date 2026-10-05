@@ -202,17 +202,20 @@ You can modify options based on the conditions of different sources like [matrix
 
 The [type](#types) of the selected option determines the types of values.
 
-For environment plugin options without declared type information, use a table with a `value` key or an array of such tables:
+For options without declared type information, use a table with a `value` key. Known options such as `extra-args` have
+declared types and support the standard typed override syntax:
 
 ```toml config-example
 [tool.hatch.envs.test.overrides]
 matrix.mode.extra-args = [
-  { value = ["-q"], if = ["quiet"] },
-  { value = ["-vv"], if = ["verbose"] },
+  { value = "-q", if = ["quiet"] },
+  { value = "-vv", if = ["verbose"] },
 ]
 ```
 
-Each matching entry replaces the entire option value. If multiple entries match, the last matching entry wins; if none match, the existing value is retained. Arrays for these options are applied after environment plugin types are loaded, so options with declared types retain their type-specific override behavior.
+Each matching entry adds its string to the argument array. Multiple matching entries are applied in order. The previous
+single-table form, such as `extra-args = { value = ["-q"], if = ["quiet"] }`, remains supported temporarily and emits a
+deprecation warning.
 
 ### Platform overrides
 
